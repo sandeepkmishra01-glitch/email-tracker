@@ -1,0 +1,18 @@
+{% extends "base.html" %}{% block content %}
+<h1>Compose tracked email</h1>
+{% if result %}
+<h2>Created email #{{ result.email_id }}{% if result.sent %} — sent via SMTP{% endif %}</h2>
+{% for e in result.errors %}<p style="color:#b00">{{ e }}</p>{% endfor %}
+{% if not result.sent %}<p>Copy the tracked HTML for each recipient into your mail client (as HTML):</p>{% endif %}
+{% for o in result.outputs %}<h3>{{ o.recipient }}</h3><pre>{{ o.html }}</pre>{% endfor %}
+<p><a href="/emails/{{ result.email_id }}">View stats</a></p>
+{% else %}
+<form method="post">
+<label>Subject<input name="subject" required></label>
+<label>Recipients (comma or newline separated)<textarea name="recipients" rows="3" required></textarea></label>
+<label>HTML body<textarea name="body_html" rows="10" required></textarea></label>
+{% if smtp %}<label><input type="checkbox" name="send" value="1" style="width:auto"> Send via SMTP now</label>
+{% else %}<p class="muted">SMTP not configured; tracked HTML will be shown for manual sending.</p>{% endif %}
+<button>Create</button>
+</form>
+{% endif %}{% endblock %}

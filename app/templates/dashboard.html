@@ -1,0 +1,11 @@
+{% extends "base.html" %}{% block content %}
+<h1>Emails</h1>
+<table><tr><th>Subject</th><th>Created</th><th>Sent</th><th>Opened</th><th>Clicked</th></tr>
+{% for s in stats %}<tr>
+<td><a href="/emails/{{ s.id }}">{{ s.subject }}</a></td>
+<td>{{ s.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+<td>{{ s.sent }}</td><td>{{ s.opened }} ({{ s.open_rate }}%)</td><td>{{ s.clicked }} ({{ s.click_rate }}%)</td>
+</tr>{% else %}<tr><td colspan="5">No emails yet. <a href="/compose">Compose one</a>.</td></tr>{% endfor %}
+</table>
+<p class="muted">Opens exclude likely proxy/prefetch hits. Open tracking is approximate; clicks are more reliable.</p>
+{% endblock %}
