@@ -4,6 +4,7 @@ import re
 os.environ["DATABASE_URL"] = "sqlite:///./test.db"
 os.environ["ADMIN_USER"] = "a"
 os.environ["ADMIN_PASS"] = "b"
+os.environ["TRACKER_API_KEY"] = "k"
 os.environ["BASE_URL"] = "https://t.example.com"
 
 from datetime import datetime, timedelta, timezone
@@ -48,3 +49,13 @@ def test_end_to_end():
         assert c.get("/c/bogus/1", follow_redirects=False).status_code == 404
         stats = c.get("/api/emails", auth=("a", "b")).json()
         assert stats[0]["sent"] == 1 and stats[0]["clicked"] == 1
+
+
+def test_api_track():
+    with TestClient(app) as c:
+        body = {"subject": "S", "recipients": ["a@b.com", "c@d.com"], "html": HTML}
+        assert c.post("/api/track", json=body).status_code == 401
+        assert c.post("/api/track", json=body, headers={"x-api-key": "bad"}).status_code == 401
+        r = c.post("/api/track", json=body, headers={"x-api-key": "k"})
+        assert r.status_code == 200
+        assert "/t/" in r.json()["html"] and "/c/" in r.json()["html"]

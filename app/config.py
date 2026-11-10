@@ -3,6 +3,7 @@ import os
 BASE_URL = os.getenv("BASE_URL", "http://localhost:8000").rstrip("/")
 ADMIN_USER = os.getenv("ADMIN_USER", "admin")
 ADMIN_PASS = os.getenv("ADMIN_PASS", "change-me")
+API_KEY = os.getenv("TRACKER_API_KEY", "")
 SMTP_HOST = os.getenv("SMTP_HOST", "")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
 SMTP_USER = os.getenv("SMTP_USER", "")

@@ -4,10 +4,11 @@ import zlib
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, Form, HTTPException, Request
+from fastapi import Depends, FastAPI, Form, Header, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from . import config, mailer, tracking
@@ -175,3 +176,36 @@ def compose(request: Request, subject: str = Form(...), body_html: str = Form(..
         "smtp": mailer.smtp_configured(),
         "result": {"email_id": email.id, "outputs": outputs, "errors": errors,
                    "sent": bool(send and mailer.smtp_configured())}})
+
+
+# ---------- extension API ----------
+class TrackIn(BaseModel):
+    subject: str = ""
+    recipients: list[str] = []
+    html: str
+
+
+@app.post("/api/track")
+def api_track(payload: TrackIn, x_api_key: str = Header(""), db: Session = Depends(get_db)):
+    """Called by the Gmail extension at send time. Returns the tracked HTML."""
+    if not config.API_KEY:
+        raise HTTPException(503, "TRACKER_API_KEY not configured")
+    if not secrets.compare_digest(x_api_key.encode(), config.API_KEY.encode()):
+        raise HTTPException(401, "Bad API key")
+    email = Email(subject=payload.subject[:500] or "(no subject)", body_html=payload.html)
+    db.add(email)
+    db.flush()
+    link_ids = {}
+    for url in tracking.extract_links(payload.html):
+        link = Link(email_id=email.id, url=url)
+        db.add(link)
+        db.flush()
+        link_ids[url] = link.id
+    # One body is shared by all recipients of a Gmail send, so one token per send.
+    msg = Message(email_id=email.id, recipient=", ".join(payload.recipients)[:320] or "(unknown)",
+                  token=tracking.new_token())
+    db.add(msg)
+    db.flush()
+    html = tracking.render_tracked(payload.html, config.BASE_URL, msg.token, link_ids)
+    db.commit()
+    return {"email_id": email.id, "html": html}
