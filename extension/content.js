@@ -1,6 +1,17 @@
 // Intercepts Gmail's Send, asks the tracker to rewrite the body, then sends for real.
 // Fails open: if tracking fails, the email is sent untracked rather than blocked.
 (() => {
+  const VERSION = "1.1.0-diag";
+  console.log("[Email Tracker] content script loaded, v" + VERSION);
+  function toast(msg, bad) {
+    const t = document.createElement("div");
+    t.textContent = "Email Tracker: " + msg;
+    t.style.cssText =
+      "position:fixed;left:16px;bottom:16px;z-index:2147483647;padding:10px 14px;border-radius:6px;" +
+      "font:13px system-ui,sans-serif;color:#fff;background:" + (bad ? "#b00020" : "#1b7f3b");
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 6000);
+  }
   const SEND_SEL = 'div[role="button"][data-tooltip^="Send"]';
   const BODY_SEL = 'div[aria-label="Message Body"][contenteditable="true"], div[role="textbox"][g_editable="true"]';
   let busy = false;
@@ -54,8 +65,18 @@
           apply();
           await new Promise((res) => setTimeout(res, 400));
           apply();
+          const now = [...body.querySelectorAll("a[href]")].map((a) => a.getAttribute("href"));
+          const ok = wanted.filter((w, i) => now[i] === w).length;
+          console.log("[Email Tracker] v" + VERSION + " links wanted:", wanted, "actual:", now);
+          toast(
+            wanted.length
+              ? ok + "/" + wanted.length + " links tracked" + (ok === wanted.length ? "" : " (some links reverted!)")
+              : "tracked (no links in this message)",
+            wanted.length > 0 && ok !== wanted.length
+          );
         } else {
           console.warn("[Email Tracker] not tracked:", r.error);
+          toast("NOT tracked (" + (r.error || "unknown") + ")", true);
         }
       }
     } finally {
