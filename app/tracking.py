@@ -1,3 +1,4 @@
+import ipaddress
 import secrets
 from datetime import datetime, timezone
 
@@ -50,10 +51,22 @@ def render_tracked(html: str, base_url: str, token: str, link_ids: dict[str, int
     return str(soup) + pixel_tag(base_url, token)
 
 
-def is_proxy_open(user_agent: str | None, sent_at: datetime | None, now: datetime | None = None) -> bool:
+APPLE_NET = ipaddress.ip_network("17.0.0.0/8")  # Apple-owned; Mail Privacy Protection preloads
+
+
+def is_proxy_open(user_agent: str | None, sent_at: datetime | None, now: datetime | None = None,
+                  ip: str | None = None) -> bool:
     ua = (user_agent or "").lower()
     if any(m in ua for m in PROXY_MARKERS):
         return True
+    # Apple Mail Privacy Protection preloads use a bare "Mozilla/5.0" user agent
+    if ua.strip() == "mozilla/5.0":
+        return True
+    try:
+        if ip and ipaddress.ip_address(ip.strip()) in APPLE_NET:
+            return True
+    except ValueError:
+        pass
     if sent_at is not None:
         now = now or datetime.now(timezone.utc)
         if sent_at.tzinfo is None:

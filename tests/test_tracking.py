@@ -35,6 +35,14 @@ def test_proxy_detection():
     assert not tracking.is_proxy_open("Mozilla", old)
 
 
+def test_apple_mpp_detection():
+    old = datetime.now(timezone.utc) - timedelta(minutes=5)
+    assert tracking.is_proxy_open("Mozilla/5.0", old)
+    assert tracking.is_proxy_open("Mozilla/5.0 (iPhone)", old, ip="17.58.1.2")
+    assert not tracking.is_proxy_open("Mozilla/5.0 (iPhone; CPU iPhone OS 18_7)", old, ip="73.133.74.190")
+    assert not tracking.is_proxy_open("Mozilla/5.0 (iPhone)", old, ip="not-an-ip")
+
+
 def test_end_to_end():
     with TestClient(app) as c:
         assert c.get("/").status_code == 401

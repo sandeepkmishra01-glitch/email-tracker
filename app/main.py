@@ -59,8 +59,9 @@ def client_ip(request: Request) -> str:
 
 def record(db: Session, msg: Message, request: Request, type_: str, link_id=None):
     ua = request.headers.get("user-agent", "")[:500]
-    proxy = tracking.is_proxy_open(ua, msg.sent_at) if type_ == "open" else False
-    db.add(Event(message_id=msg.id, type=type_, link_id=link_id, ip=client_ip(request),
+    ip = client_ip(request)
+    proxy = tracking.is_proxy_open(ua, msg.sent_at, ip=ip) if type_ == "open" else False
+    db.add(Event(message_id=msg.id, type=type_, link_id=link_id, ip=ip,
                  user_agent=ua, is_proxy=proxy))
     db.commit()
 
