@@ -34,10 +34,17 @@ def extract_links(html: str) -> list[str]:
     return out
 
 
+def _norm(url: str) -> str:
+    return url.strip().rstrip("/").lower()
+
+
 def render_tracked(html: str, base_url: str, token: str, link_ids: dict[str, int]) -> str:
     soup = BeautifulSoup(html, "html.parser")
+    by_norm = {_norm(u): i for u, i in link_ids.items()}
     for a in soup.find_all("a", href=True):
         lid = link_ids.get(a["href"].strip())
+        if lid is None:
+            lid = by_norm.get(_norm(a["href"]))
         if lid is not None:
             a["href"] = link_url(base_url, token, lid)
     return str(soup) + pixel_tag(base_url, token)
