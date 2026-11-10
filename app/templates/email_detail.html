@@ -4,6 +4,6 @@
 <table><tr><th>Recipient</th><th>Opens</th><th>Proxy opens</th><th>Clicks</th><th>Timeline</th></tr>
 {% for r in rows %}<tr>
 <td>{{ r.recipient }}</td><td>{{ r.opens }}</td><td>{{ r.proxy_opens }}</td><td>{{ r.clicks }}</td>
-<td>{% for ev in r.events %}{{ ev.ts.strftime('%m-%d %H:%M:%S') }} {{ ev.type }}{% if ev.is_proxy %} (proxy){% endif %}{% if ev.link_id %} → {{ urls.get(ev.link_id) }}{% endif %}<br>{% endfor %}</td>
+<td>{% for ev in r.events %}{{ ev.ts.strftime('%m-%d %H:%M:%S') }} {{ ev.type }}{% if ev.is_proxy %} (proxy){% endif %}{% if ev.link_id %} → {{ urls.get(ev.link_id) }}{% endif %} <span class="muted">[{{ ev.ip }}] {{ (ev.user_agent or '')[:70] }}</span><br>{% endfor %}</td>
 </tr>{% endfor %}</table>
 {% endblock %}
