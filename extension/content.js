@@ -1,7 +1,7 @@
 // Intercepts Gmail's / Outlook on the web's Send, asks the tracker to rewrite the body, then sends for real.
 // Fails open: if tracking fails, the email is sent untracked rather than blocked.
 (() => {
-  const VERSION = "1.2.1-outlook";
+  const VERSION = "1.2.2-outlook";
   console.log("[Email Tracker] content script loaded, v" + VERSION);
   function toast(msg, bad) {
     const t = document.createElement("div");
@@ -75,7 +75,7 @@
   };
 
   const host = location.hostname;
-  const client = host === "mail.google.com" ? gmail : /(^|\.)(outlook\.(office|office365|live)\.com)$/.test(host) ? outlook : null;
+  const client = host === "mail.google.com" ? gmail : /(^|\.)(outlook\.(office|office365|live)\.com|outlook\.cloud\.microsoft)$/.test(host) ? outlook : null;
   if (!client) return;
   console.log("[Email Tracker] client:", client.name);
   const { SEND_SEL, BODY_SEL, findCompose } = client;
