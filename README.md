@@ -1,6 +1,6 @@
 # Email Tracker
 
-Email open and click tracking built with FastAPI. Each recipient gets a unique token. A 1x1 pixel records opens, and rewritten links record clicks.
+Email open and click tracking built with FastAPI (Gmail and Outlook on the web via the Chrome/Edge extension). Each recipient gets a unique token. A 1x1 pixel records opens, and rewritten links record clicks.
 
 ## Run locally
 ```

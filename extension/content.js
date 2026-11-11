@@ -1,7 +1,7 @@
-// Intercepts Gmail's Send, asks the tracker to rewrite the body, then sends for real.
+// Intercepts Gmail's / Outlook on the web's Send, asks the tracker to rewrite the body, then sends for real.
 // Fails open: if tracking fails, the email is sent untracked rather than blocked.
 (() => {
-  const VERSION = "1.1.0-diag";
+  const VERSION = "1.2.0-outlook";
   console.log("[Email Tracker] content script loaded, v" + VERSION);
   function toast(msg, bad) {
     const t = document.createElement("div");
@@ -12,25 +12,78 @@
     document.body.appendChild(t);
     setTimeout(() => t.remove(), 6000);
   }
-  const SEND_SEL = 'div[role="button"][data-tooltip^="Send"]';
-  const BODY_SEL = 'div[aria-label="Message Body"][contenteditable="true"], div[role="textbox"][g_editable="true"]';
-  let busy = false;
+  // ---- Per-client adapters: how to find the Send button, compose root, body, subject, recipients. ----
+  const EMAIL_RE = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
 
-  const findCompose = (el) =>
-    el.closest('div[role="dialog"]') || el.closest("table.aoP") || el.closest(".nH.Hd") || document;
+  const gmail = {
+    name: "Gmail",
+    SEND_SEL: 'div[role="button"][data-tooltip^="Send"]',
+    BODY_SEL: 'div[aria-label="Message Body"][contenteditable="true"], div[role="textbox"][g_editable="true"]',
+    findCompose: (el) =>
+      el.closest('div[role="dialog"]') || el.closest("table.aoP") || el.closest(".nH.Hd") || document,
+    readRecipients(root) {
+      const emails = new Set();
+      root.querySelectorAll('input[name="to"], input[name="cc"], input[name="bcc"]').forEach((i) => {
+        (i.value || "").split(",").forEach((v) => v.trim() && emails.add(v.trim()));
+      });
+      root.querySelectorAll("span[email], [data-hovercard-id*='@']").forEach((s) => {
+        const v = s.getAttribute("email") || s.getAttribute("data-hovercard-id");
+        if (v) emails.add(v);
+      });
+      return emails;
+    },
+    readSubject(root) {
+      const i = root.querySelector('input[name="subjectbox"]');
+      return i ? i.value : "";
+    },
+  };
+
+  // Outlook on the web (outlook.office.com / outlook.office365.com / outlook.live.com).
+  // Outlook uses hashed class names, so we rely on aria-labels and roles, which are stable.
+  const outlook = {
+    name: "Outlook",
+    // Exact "Send" only: the split-button caret is labelled "Send options"/"Send later" etc.
+    SEND_SEL: 'button[aria-label="Send"], button[title="Send"], button[aria-label="Send (Ctrl+Enter)"]',
+    BODY_SEL:
+      'div[role="textbox"][aria-label^="Message body"][contenteditable="true"], div[id^="UniqueMessageBody"][contenteditable="true"]',
+    // Compose can be a pop-out, a reading-pane reply, or a full window: walk up from the Send
+    // button until the ancestor also contains the message body.
+    findCompose(el) {
+      let n = el;
+      while (n && n !== document.body) {
+        if (n.querySelector && n.querySelector(outlook.BODY_SEL) && n.querySelector(outlook.SEND_SEL)) return n;
+        n = n.parentElement;
+      }
+      return document;
+    },
+    readRecipients(root) {
+      const emails = new Set();
+      // Recipient wells are labelled "To", "Cc", "Bcc"; each pill carries the address in text/title/aria-label.
+      root.querySelectorAll('[aria-label="To"], [aria-label="Cc"], [aria-label="Bcc"]').forEach((well) => {
+        const hay = [well.textContent || ""];
+        well.querySelectorAll("[title], [aria-label]").forEach((e) => {
+          hay.push(e.getAttribute("title") || "", e.getAttribute("aria-label") || "");
+        });
+        (hay.join(" ").match(EMAIL_RE) || []).forEach((m) => emails.add(m));
+      });
+      return emails;
+    },
+    readSubject(root) {
+      const i = root.querySelector('input[aria-label="Add a subject"], input[placeholder="Add a subject"]');
+      return i ? i.value : "";
+    },
+  };
+
+  const host = location.hostname;
+  const client = host === "mail.google.com" ? gmail : /(^|\.)(outlook\.(office|office365|live)\.com)$/.test(host) ? outlook : null;
+  if (!client) return;
+  console.log("[Email Tracker] client:", client.name);
+  const { SEND_SEL, BODY_SEL, findCompose } = client;
+  let busy = false;
 
   function readCompose(root) {
     const body = root.querySelector(BODY_SEL);
-    const subject = root.querySelector('input[name="subjectbox"]');
-    const emails = new Set();
-    root.querySelectorAll('input[name="to"], input[name="cc"], input[name="bcc"]').forEach((i) => {
-      (i.value || "").split(",").forEach((v) => v.trim() && emails.add(v.trim()));
-    });
-    root.querySelectorAll("span[email], [data-hovercard-id*='@']").forEach((s) => {
-      const v = s.getAttribute("email") || s.getAttribute("data-hovercard-id");
-      if (v) emails.add(v);
-    });
-    return { body, subject: subject ? subject.value : "", recipients: [...emails] };
+    return { body, subject: client.readSubject(root), recipients: [...client.readRecipients(root)] };
   }
 
   const ask = (payload) =>
