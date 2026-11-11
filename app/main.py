@@ -1,7 +1,9 @@
+import logging
 import secrets
 import struct
 import zlib
 from contextlib import asynccontextmanager
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, Form, Header, HTTPException, Request
@@ -12,8 +14,10 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from . import config, mailer, tracking
-from .db import Base, engine, get_db
+from .db import Base, SessionLocal, engine, get_db
 from .models import Email, Event, Link, Message
+
+logger = logging.getLogger("tracker")
 
 BASE_DIR = Path(__file__).parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
@@ -38,13 +42,47 @@ PIXEL = _make_pixel()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(engine)
+    if not config.ADMIN_PASS:
+        logger.warning("ADMIN_PASS is not set: the dashboard is locked (503) until it is.")
+    scrub_old_events()
     yield
 
 
-app = FastAPI(title="Email Tracker", lifespan=lifespan)
+app = FastAPI(title="Email Tracker", lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
+
+
+def scrub_old_events():
+    """Blank IP + user agent on old events. Keeps the open/click timeline, drops the personal data."""
+    if config.SCRUB_AFTER_DAYS <= 0:
+        return
+    cutoff = datetime.now(timezone.utc) - timedelta(days=config.SCRUB_AFTER_DAYS)
+    with SessionLocal() as db:
+        n = (db.query(Event)
+             .filter(Event.ts < cutoff, (Event.ip != "") | (Event.user_agent != ""))
+             .update({Event.ip: "", Event.user_agent: ""}, synchronize_session=False))
+        db.commit()
+        if n:
+            logger.info("Scrubbed IP/user agent from %d events older than %d days", n, config.SCRUB_AFTER_DAYS)
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    resp = await call_next(request)
+    resp.headers.setdefault("X-Content-Type-Options", "nosniff")
+    resp.headers.setdefault("Referrer-Policy", "no-referrer")
+    resp.headers.setdefault("X-Frame-Options", "DENY")
+    resp.headers.setdefault("X-Robots-Tag", "noindex, nofollow")
+    return resp
+
+
+@app.get("/robots.txt", include_in_schema=False)
+def robots():
+    return Response("User-agent: *\nDisallow: /\n", media_type="text/plain")
 
 
 def admin(creds: HTTPBasicCredentials = Depends(security)):
+    if not config.ADMIN_PASS or config.ADMIN_PASS == "change-me":
+        raise HTTPException(503, "ADMIN_PASS not configured")  # fail closed, never fall back to a default
     ok_user = secrets.compare_digest(creds.username.encode(), config.ADMIN_USER.encode())
     ok_pass = secrets.compare_digest(creds.password.encode(), config.ADMIN_PASS.encode())
     if not (ok_user and ok_pass):
@@ -61,7 +99,8 @@ def record(db: Session, msg: Message, request: Request, type_: str, link_id=None
     ua = request.headers.get("user-agent", "")[:500]
     ip = client_ip(request)
     proxy = tracking.is_proxy_open(ua, msg.sent_at, ip=ip) if type_ == "open" else False
-    db.add(Event(message_id=msg.id, type=type_, link_id=link_id, ip=ip,
+    stored_ip = ip if config.STORE_FULL_IP else tracking.anonymize_ip(ip)
+    db.add(Event(message_id=msg.id, type=type_, link_id=link_id, ip=stored_ip,
                  user_agent=ua, is_proxy=proxy))
     db.commit()
 

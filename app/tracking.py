@@ -74,3 +74,13 @@ def is_proxy_open(user_agent: str | None, sent_at: datetime | None, now: datetim
         if (now - sent_at).total_seconds() < MIN_SECONDS_AFTER_SEND:
             return True
     return False
+
+
+def anonymize_ip(ip: str | None) -> str:
+    """Truncate to /24 (IPv4) or /48 (IPv6) so stored events can't pinpoint one device."""
+    try:
+        addr = ipaddress.ip_address((ip or "").strip())
+    except ValueError:
+        return ""
+    prefix = 24 if addr.version == 4 else 48
+    return str(ipaddress.ip_network(f"{addr}/{prefix}", strict=False).network_address)

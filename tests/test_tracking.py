@@ -67,3 +67,45 @@ def test_api_track():
         r = c.post("/api/track", json=body, headers={"x-api-key": "k"})
         assert r.status_code == 200
         assert "/t/" in r.json()["html"] and "/c/" in r.json()["html"]
+
+
+def test_anonymize_ip():
+    assert tracking.anonymize_ip("203.0.113.77") == "203.0.113.0"
+    assert tracking.anonymize_ip("2001:db8:abcd:1234::1") == "2001:db8:abcd::"
+    assert tracking.anonymize_ip("not-an-ip") == ""
+
+
+def test_ip_stored_truncated_and_scrubbed():
+    from app import config
+    from app.db import SessionLocal
+    from app.main import scrub_old_events
+    from app.models import Event
+    with TestClient(app) as c:
+        r = c.post("/compose", auth=("a", "b"),
+                   data={"subject": "IP", "recipients": "x@y.com", "body_html": HTML})
+        token = re.search(r"/t/([\w-]+)\.png", r.text).group(1)
+        c.get(f"/t/{token}.png", headers={"x-forwarded-for": "203.0.113.77", "user-agent": "UA-test"})
+        with SessionLocal() as db:
+            ev = db.query(Event).filter_by(ip="203.0.113.0").order_by(Event.id.desc()).first()
+            assert ev is not None and ev.user_agent == "UA-test"
+            ev.ts = datetime.now(timezone.utc) - timedelta(days=config.SCRUB_AFTER_DAYS + 1)
+            db.commit()
+            eid = ev.id
+        scrub_old_events()
+        with SessionLocal() as db:
+            ev = db.get(Event, eid)
+            assert ev.ip == "" and ev.user_agent == ""
+
+
+def test_admin_locked_without_password(monkeypatch):
+    from app import config
+    monkeypatch.setattr(config, "ADMIN_PASS", "")
+    with TestClient(app) as c:
+        assert c.get("/", auth=("a", "")).status_code == 503
+
+
+def test_security_headers_and_no_docs():
+    with TestClient(app) as c:
+        h = c.get("/health").headers
+        assert h["referrer-policy"] == "no-referrer" and h["x-frame-options"] == "DENY"
+        assert c.get("/docs").status_code == 404 and c.get("/openapi.json").status_code == 404
