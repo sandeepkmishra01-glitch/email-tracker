@@ -9,6 +9,7 @@ from pathlib import Path
 from fastapi import Depends, FastAPI, Form, Header, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -70,9 +71,17 @@ async def security_headers(request: Request, call_next):
     resp = await call_next(request)
     resp.headers.setdefault("X-Content-Type-Options", "nosniff")
     resp.headers.setdefault("Referrer-Policy", "no-referrer")
-    resp.headers.setdefault("X-Frame-Options", "DENY")
+    if not request.url.path.startswith("/addin"):  # Outlook loads the add-in task pane in a frame
+        resp.headers.setdefault("X-Frame-Options", "DENY")
     resp.headers.setdefault("X-Robots-Tag", "noindex, nofollow")
     return resp
+
+
+# Outlook add-in (manifest.xml, commands.js, task pane). Public files, no secrets: the API key
+# is entered by the user in Outlook and stored in Outlook's own settings.
+_ADDIN_DIR = BASE_DIR.parent / "addin"
+if _ADDIN_DIR.is_dir():
+    app.mount("/addin", StaticFiles(directory=str(_ADDIN_DIR)), name="addin")
 
 
 @app.get("/robots.txt", include_in_schema=False)

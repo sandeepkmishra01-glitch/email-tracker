@@ -35,3 +35,14 @@ Open http://localhost:8000 (HTTP Basic auth: `ADMIN_USER` / `ADMIN_PASS`; the da
 - On startup, events older than `SCRUB_AFTER_DAYS` (default 90) have their IP and user agent blanked. Open/click timestamps and counts are kept. Set `0` to disable.
 - API docs (`/docs`, `/openapi.json`) are disabled; `/robots.txt` disallows crawlers; responses set `nosniff`, `no-referrer` and `X-Frame-Options: DENY`.
 - Rotate `TRACKER_API_KEY` in Railway if it leaks, then update the extension's Options.
+
+## Outlook add-in (new Outlook / Outlook on the web / classic)
+
+`addin/` is an Office add-in served by this app at `/addin/`. On Send it calls `/api/track` and swaps in the tracked HTML; if anything fails the email goes out untracked.
+
+1. Deploy this repo (the add-in files are served from `BASE_URL/addin/`). Check `https://<your-app>/addin/manifest.xml` opens.
+2. Outlook > Get Add-ins > My add-ins > Add a custom add-in > Add from URL (or file) > use `manifest.xml`.
+3. Open a new message, click **Tracker setup** on the ribbon, paste your `TRACKER_API_KEY`, Save.
+4. Send a test email to yourself and check the dashboard.
+
+If you deploy to a different URL, change the host in `addin/manifest.xml`.

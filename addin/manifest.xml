@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
+           xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
+           xmlns:mailappor="http://schemas.microsoft.com/office/mailappversionoverrides/1.0"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="MailApp">
+  <Id>24a72eb4-d30f-4406-b617-932a3046af22</Id>
+  <Version>1.0.0.0</Version>
+  <ProviderName>Email Tracker</ProviderName>
+  <DefaultLocale>en-US</DefaultLocale>
+  <DisplayName DefaultValue="Email Tracker"/>
+  <Description DefaultValue="Adds open and click tracking to emails you send from Outlook, using your own tracker server."/>
+  <IconUrl DefaultValue="https://web-production-8af1f031.up.railway.app/addin/icon-64.png"/>
+  <HighResolutionIconUrl DefaultValue="https://web-production-8af1f031.up.railway.app/addin/icon-128.png"/>
+  <SupportUrl DefaultValue="https://web-production-8af1f031.up.railway.app/health"/>
+  <AppDomains><AppDomain>https://web-production-8af1f031.up.railway.app</AppDomain></AppDomains>
+  <Hosts><Host Name="Mailbox"/></Hosts>
+  <Requirements><Sets><Set Name="Mailbox" MinVersion="1.10"/></Sets></Requirements>
+  <FormSettings>
+    <Form xsi:type="ItemRead"><DesktopSettings><SourceLocation DefaultValue="https://web-production-8af1f031.up.railway.app/addin/taskpane.html"/><RequestedHeight>250</RequestedHeight></DesktopSettings></Form>
+  </FormSettings>
+  <Permissions>ReadWriteItem</Permissions>
+  <Rule xsi:type="RuleCollection" Mode="Or">
+    <Rule xsi:type="ItemIs" ItemType="Message" FormType="Edit"/>
+  </Rule>
+  <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides" xsi:type="VersionOverridesV1_0">
+    <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides/1.1" xsi:type="VersionOverridesV1_1">
+      <Requirements><bt:Sets DefaultMinVersion="1.12"><bt:Set Name="Mailbox"/></bt:Sets></Requirements>
+      <Hosts>
+        <Host xsi:type="MailHost">
+          <Runtimes>
+            <Runtime resid="Runtime.Url"><Override type="javascript" resid="Commands.Url"/></Runtime>
+          </Runtimes>
+          <DesktopFormFactor>
+            <FunctionFile resid="Runtime.Url"/>
+            <ExtensionPoint xsi:type="LaunchEvent">
+              <LaunchEvents>
+                <LaunchEvent Type="OnMessageSend" FunctionName="onMessageSendHandler" SendMode="SoftBlock"/>
+              </LaunchEvents>
+              <SourceLocation resid="Runtime.Url"/>
+            </ExtensionPoint>
+            <ExtensionPoint xsi:type="MessageComposeCommandSurface">
+              <OfficeTab id="TabDefault">
+                <Group id="trackerGroup">
+                  <Label resid="Group.Label"/>
+                  <Control xsi:type="Button" id="trackerSettings">
+                    <Label resid="Btn.Label"/>
+                    <Supertip><Title resid="Btn.Label"/><Description resid="Btn.Tip"/></Supertip>
+                    <Icon>
+                      <bt:Image size="16" resid="Icon.16"/><bt:Image size="32" resid="Icon.32"/><bt:Image size="80" resid="Icon.80"/>
+                    </Icon>
+                    <Action xsi:type="ShowTaskpane">
+                      <SourceLocation resid="Taskpane.Url"/>
+                    </Action>
+                  </Control>
+                </Group>
+              </OfficeTab>
+            </ExtensionPoint>
+          </DesktopFormFactor>
+        </Host>
+      </Hosts>
+      <Resources>
+        <bt:Images>
+          <bt:Image id="Icon.16" DefaultValue="https://web-production-8af1f031.up.railway.app/addin/icon-16.png"/>
+          <bt:Image id="Icon.32" DefaultValue="https://web-production-8af1f031.up.railway.app/addin/icon-32.png"/>
+          <bt:Image id="Icon.80" DefaultValue="https://web-production-8af1f031.up.railway.app/addin/icon-80.png"/>
+        </bt:Images>
+        <bt:Urls>
+          <bt:Url id="Runtime.Url" DefaultValue="https://web-production-8af1f031.up.railway.app/addin/commands.html"/>
+          <bt:Url id="Commands.Url" DefaultValue="https://web-production-8af1f031.up.railway.app/addin/commands.js"/>
+          <bt:Url id="Taskpane.Url" DefaultValue="https://web-production-8af1f031.up.railway.app/addin/taskpane.html"/>
+        </bt:Urls>
+        <bt:ShortStrings>
+          <bt:String id="Group.Label" DefaultValue="Email Tracker"/>
+          <bt:String id="Btn.Label" DefaultValue="Tracker setup"/>
+        </bt:ShortStrings>
+        <bt:LongStrings>
+          <bt:String id="Btn.Tip" DefaultValue="Enter your tracker API key. Emails you send are tracked automatically."/>
+        </bt:LongStrings>
+      </Resources>
+    </VersionOverrides>
+  </VersionOverrides>
+</OfficeApp>
