@@ -62,13 +62,21 @@
         if (sel) {
           sel.value = "html";
           sel.dispatchEvent(new Event("change", { bubbles: true }));
-          for (let i = 0; i < 20 && !htmlBody(); i++) await new Promise((r) => setTimeout(r, 150));
+          for (let i = 0; i < 30 && !htmlBody(); i++) await new Promise((r) => setTimeout(r, 150));
         }
+      }
+      // TinyMCE fills its body a moment after it appears: wait for the text to arrive.
+      for (let i = 0; i < 30; i++) {
+        const b = htmlBody();
+        if (b && b.innerText.trim()) break;
+        await new Promise((r) => setTimeout(r, 150));
       }
       const { body, subject, recipients } = readCompose();
       if (!body) {
-        toast("NOT tracked: switch the editor to HTML (Options > Editor type > HTML)", true);
-      } else if (!body.dataset.etTracked && body.innerText.trim()) {
+        toast("NOT tracked (HTML editor did not load: switch Editor type to HTML and retry)", true);
+      } else if (!body.innerText.trim()) {
+        toast("NOT tracked (message text not found in HTML editor)", true);
+      } else if (!body.dataset.etTracked) {
         const r = await ask({ subject, recipients, html: body.innerHTML });
         if (r.ok && r.data && r.data.html) {
           body.innerHTML = r.data.html;
