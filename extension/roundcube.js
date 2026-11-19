@@ -58,9 +58,9 @@
     try {
       // Plain-text editor has no place for a pixel: switch to HTML first (Roundcube keeps the text).
       if (!htmlBody()) {
-        const sel = document.querySelector('select[name="_is_html"]');
+        const sel = document.querySelector('#editor-selector, select[name="editorSelector"]');
         if (sel) {
-          sel.value = "1";
+          sel.value = "html";
           sel.dispatchEvent(new Event("change", { bubbles: true }));
           for (let i = 0; i < 20 && !htmlBody(); i++) await new Promise((r) => setTimeout(r, 150));
         }
