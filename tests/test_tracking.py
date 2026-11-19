@@ -30,7 +30,8 @@ def test_extract_and_render():
 
 def test_proxy_detection():
     old = datetime.now(timezone.utc) - timedelta(minutes=5)
-    assert tracking.is_proxy_open("GoogleImageProxy", old)
+    assert not tracking.is_proxy_open("GoogleImageProxy", old)  # Gmail opens count
+    assert tracking.is_proxy_open("GoogleImageProxy", datetime.now(timezone.utc))  # but not instant scanner hits
     assert tracking.is_proxy_open("Mozilla", datetime.now(timezone.utc))
     assert not tracking.is_proxy_open("Mozilla", old)
 

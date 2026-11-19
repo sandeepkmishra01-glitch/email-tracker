@@ -4,7 +4,10 @@ from datetime import datetime, timezone
 
 from bs4 import BeautifulSoup
 
-PROXY_MARKERS = ("googleimageproxy", "ggpht.com", "yahoomailproxy")
+# Gmail and Yahoo load images through their own proxy, but only when a message is opened
+# (they don't prefetch), so those hits are real opens and are counted. Only Apple Mail
+# Privacy Protection preloads (checked below) are treated as proxy hits.
+PROXY_MARKERS: tuple[str, ...] = ()
 MIN_SECONDS_AFTER_SEND = 3
 
 
